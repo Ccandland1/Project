@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rainbow Pong</title>
+
+<style>
+body {
+    margin: 0;
+    background: radial-gradient(circle, #0f172a, #000);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#scoreboard {
+    position: absolute;
+    top: 20px;
+    color: white;
+    font-size: 32px;
+    font-family: monospace;
+}
+
+canvas {
+    border: 2px solid white;
+}
+</style>
+</head>
+
+<body>
+
+<div id="scoreboard">0 : 0</div>
+<canvas id="game" width="800" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let playerScore = 0;
+let cpuScore = 0;
+
+let player = {x: 770, y: 150, w: 10, h: 100};
+let cpu = {x: 20, y: 150, w: 10, h: 100};
+
+let ball = {x: 400, y: 200, dx: 6, dy: 4, size: 10};
+
+let confetti = [];
+let hue = 0;
+
+/* Mouse control */
+canvas.addEventListener("mousemove", e => {
+    const rect = canvas.getBoundingClientRect();
+    player.y = e.clientY - rect.top - player.h/2;
+    player.y = Math.max(0, Math.min(canvas.height - player.h, player.y));
+});
+
+function loop() {
+    requestAnimationFrame(loop);
+    update();
+    draw();
+}
+
+function update() {
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    // bounce top/bottom
+    if (ball.y <= 0 || ball.y >= canvas.height - ball.size) {
+        ball.dy *= -1;
+    }
+
+    // collisions
+    if (collision(player)) {
+        ball.dx = -Math.abs(ball.dx) * 1.05;
+    }
+
+    if (collision(cpu)) {
+        // 🤖 sometimes MISS on purpose
+        if (Math.random() > 0.2) { // 80% hit chance
+            ball.dx = Math.abs(ball.dx) * 1.05;
+        }
+    }
+
+    // scoring
+    if (ball.x < 0) {
+        playerScore++;
+        explodeConfetti();
+        reset();
+    }
+
+    if (ball.x > canvas.width) {
+        cpuScore++;
+        reset();
+    }
+
+    // CPU movement (slightly imperfect tracking)
+    cpu.y += (ball.y - (cpu.y + cpu.h/2)) * 0.06;
+
+    cpu.y = Math.max(0, Math.min(canvas.height - cpu.h, cpu.y));
+
+    // flipped scoreboard (CPU : PLAYER)
+    document.getElementById("scoreboard").innerText =
+        `${cpuScore} : ${playerScore}`;
+
+    updateConfetti();
+    hue += 2;
+}
+
+function collision(p) {
+    return ball.x < p.x + p.w &&
+           ball.x + ball.size > p.x &&
+           ball.y < p.y + p.h &&
+           ball.y + ball.size > p.y;
+}
+
+function reset() {
+    ball.x = 400;
+    ball.y = 200;
+    ball.dx = (Math.random() > 0.5 ? 6 : -6);
+    ball.dy = (Math.random()*4 - 2);
+}
+
+/* DRAW */
+function draw() {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // 🌈 SAME hue for border + ball
+    let rainbow = `hsl(${hue}, 100%, 50%)`;
+
+    // border
+    canvas.style.border = `3px solid ${rainbow}`;
+
+    // center line
+    ctx.strokeStyle = rainbow;
+    ctx.setLineDash([5,10]);
+    ctx.beginPath();
+    ctx.moveTo(400,0);
+    ctx.lineTo(400,400);
+    ctx.stroke();
+
+    // paddles
+    drawRainbowRect(player.x, player.y, player.w, player.h, hue);
+    drawRainbowRect(cpu.x, cpu.y, cpu.w, cpu.h, hue + 120);
+
+    // ball (same rainbow color)
+    ctx.fillStyle = rainbow;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = rainbow;
+    ctx.fillRect(ball.x, ball.y, ball.size, ball.size);
+
+    drawConfetti();
+}
+
+function drawRainbowRect(x,y,w,h,hueOffset) {
+    let gradient = ctx.createLinearGradient(x, y, x, y+h);
+
+    gradient.addColorStop(0, `hsl(${hueOffset}, 100%, 50%)`);
+    gradient.addColorStop(1, `hsl(${hueOffset+120}, 100%, 50%)`);
+
+    ctx.fillStyle = gradient;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = `hsl(${hueOffset}, 100%, 50%)`;
+    ctx.fillRect(x,y,w,h);
+}
+
+/* CONFETTI */
+function explodeConfetti() {
+    for (let i=0;i<60;i++) {
+        confetti.push({
+            x: 400,
+            y: 200,
+            dx: Math.random()*6-3,
+            dy: Math.random()*6-3
+        });
+    }
+}
+
+function updateConfetti() {
+    confetti.forEach(p => {
+        p.x += p.dx;
+        p.y += p.dy;
+        p.dy += 0.1;
+    });
+}
+
+function drawConfetti() {
+    confetti.forEach(p => {
+        ctx.fillStyle = `hsl(${Math.random()*360},100%,50%)`;
+        ctx.fillRect(p.x,p.y,4,4);
+    });
+}
+
+loop();
+</script>
+
+</body>
+</html>
